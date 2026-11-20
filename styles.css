@@ -514,6 +514,7 @@ body[data-scene="letter"] .garden { opacity: .42; transform: scale(1.05); }
   overflow: hidden;
   pointer-events: none;
 }
+body[data-scene="letter"] .flower-shower { opacity: .7; }
 .shower-flower {
   position: absolute;
   display: block;
