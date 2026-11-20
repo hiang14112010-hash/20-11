@@ -19,6 +19,25 @@ const flowerThumbnails = flowerNames.map((name) => {
   return image;
 });
 const petalColors = ["#f6abbc", "#c95d82", "#f9dae2", "#f6cb8e", "#8aabd0"];
+const bouquetFlowers = [
+  ["ruby", 0, 4, 46, -18],
+  ["blue", 35, 2, 43, 34],
+  ["white", 68, 3, 45, -20],
+  ["pink", 99, 4, 44, 18],
+  ["gold", 1, 37, 42, 23],
+  ["blossoms", 28, 30, 42, -26],
+  ["ruby", 72, 33, 49, 26],
+  ["blue", 99, 40, 44, -34],
+  ["blue", 0, 67, 46, 20],
+  ["white", 27, 66, 48, 22],
+  ["blossoms", 73, 63, 46, -12],
+  ["gold", 100, 71, 42, 24],
+  ["pink", 0, 97, 45, -9],
+  ["ruby", 32, 99, 48, 23],
+  ["gold", 67, 98, 47, -18],
+  ["white", 100, 98, 44, 15],
+  ["pink", 50, 47, 57, -14],
+];
 
 let currentScene = "heart";
 let transitioning = false;
@@ -132,6 +151,58 @@ function scatterFlowers(origin) {
   flowerCleanup = window.setTimeout(() => shower.replaceChildren(), reduced ? 750 : 5250);
 }
 
+async function revealLetterWithFlowers(origin) {
+  const bloom = document.createElement("div");
+  bloom.className = "flower-bloom";
+  const bouquet = document.createElement("div");
+  bouquet.className = "bloom-bouquet";
+  bouquet.style.transformOrigin = `${origin.left + origin.width / 2}px ${origin.top + origin.height / 2}px`;
+
+  for (const [name, x, y, size, rotation] of bouquetFlowers) {
+    const flower = new Image();
+    flower.src = `assets/${name}.webp`;
+    flower.alt = "";
+    flower.style.left = `${x}%`;
+    flower.style.top = `${y}%`;
+    flower.style.width = `${size}vmax`;
+    flower.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+    bouquet.append(flower);
+  }
+
+  clearTimeout(flowerCleanup);
+  bloom.append(bouquet);
+  shower.replaceChildren(bloom);
+
+  const bloomDuration = 1240;
+  bloom.animate([
+    { backgroundColor: "transparent", offset: 0 },
+    { backgroundColor: "transparent", offset: .46 },
+    { backgroundColor: "#f6d7e2", offset: 1 },
+  ], { duration: bloomDuration, fill: "forwards" });
+  const opening = bouquet.animate([
+    { transform: "rotate(-154deg) scale(.035)", offset: 0 },
+    { transform: "rotate(-66deg) scale(.43)", offset: .51, easing: "cubic-bezier(.16,.68,.3,1)" },
+    { transform: "rotate(0deg) scale(1)", offset: 1 },
+  ], { duration: bloomDuration, fill: "forwards" });
+  await opening.finished;
+
+  showScene("letter", letterHeading);
+  const revealDuration = 1680;
+  bouquet.animate([
+    { transform: "translateY(0) rotate(0deg) scale(1)", offset: 0 },
+    { transform: "translateY(6vh) rotate(12deg) scale(.97)", offset: .3 },
+    { transform: "translateY(65vh) rotate(37deg) scale(.58)", offset: 1 },
+  ], { duration: revealDuration, easing: "ease-in", fill: "forwards" });
+  const closing = bloom.animate([
+    { opacity: 1, offset: 0 },
+    { opacity: 1, offset: .17 },
+    { opacity: .5, offset: .65 },
+    { opacity: 0, offset: 1 },
+  ], { duration: revealDuration, easing: "ease-in-out", fill: "forwards" });
+  await closing.finished;
+  bloom.remove();
+}
+
 heartButton.addEventListener("click", async () => {
   if (transitioning) return;
   transitioning = true;
@@ -158,17 +229,18 @@ envelopeButton.addEventListener("click", async () => {
   const origin = envelopeSeal.getBoundingClientRect();
   envelopeButton.setAttribute("aria-disabled", "true");
   envelopeButton.classList.add("is-open");
-  if (!motionPreference.matches) {
-    await wait(820);
-    scenes.envelope.classList.add("is-leaving");
-    await wait(410);
+  if (motionPreference.matches) {
+    showScene("letter", letterHeading);
+    scatterFlowers(origin);
+  } else {
+    await wait(290);
+    await revealLetterWithFlowers(origin);
   }
-  showScene("letter", letterHeading);
-  scatterFlowers(origin);
   transitioning = false;
 });
 
 restartButton.addEventListener("click", () => {
+  if (transitioning) return;
   clearTimeout(flowerCleanup);
   shower.replaceChildren();
   heartButton.classList.remove("is-bursting");
