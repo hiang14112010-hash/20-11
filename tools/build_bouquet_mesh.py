@@ -1,13 +1,14 @@
-"""Rebuild the bouquet mesh with Pillow, SciPy, scikit-image and fast-simplification."""
+"""Rebuild the bouquet mesh and texture with SciPy, scikit-image, fast-simplification and xatlas."""
 
 from pathlib import Path
 
 import numpy as np
 from fast_simplification import simplify
 from PIL import Image
-from scipy.ndimage import distance_transform_edt, gaussian_filter, map_coordinates
+from scipy.ndimage import distance_transform_edt, gaussian_filter, label, map_coordinates
 from skimage.measure import marching_cubes
 
+from bouquet_texture import bake_bouquet_texture
 
 ASSETS = Path(__file__).resolve().parents[1] / "assets"
 HEIGHT = 3.90
@@ -80,7 +81,10 @@ for azimuth, first, opposite in [(np.pi / 4, "-315", "-135"), (3 * np.pi / 4, "-
     diagonal = map_coordinates(field, coordinates, order=1, mode="constant", cval=-.3)
     volume = np.minimum(volume, diagonal + .115)
 
-volume = gaussian_filter(volume, .56)
+volume = gaussian_filter(volume, .77)
+components, _ = label(volume > 0)
+tiny = np.bincount(components.ravel()) < 13
+volume[tiny[components]] = -STEP
 vertices, faces, _, _ = marching_cubes(volume, level=0, spacing=(STEP, STEP, STEP), allow_degenerate=False)
 vertices += [ys[0], xs[0], zs[0]]
 vertices = vertices[:, [1, 0, 2]]
@@ -89,9 +93,16 @@ signed_volume = np.einsum("ij,ij->i", vertices[faces[:, 0]], np.cross(vertices[f
 if signed_volume < 0:
     faces = faces[:, ::-1]
 
+photos = [front, cutout("-315"), left, cutout("-225"), back, cutout("-135"), right, cutout("-45")]
+vertices, faces, uv = bake_bouquet_texture(
+    vertices, faces, volume, (xs, ys, zs), photos, (WIDTH, HEIGHT, CENTER_Y),
+    ASSETS / "lily-bouquet-texture.webp",
+)
+
 header = (
     f"ply\nformat binary_little_endian 1.0\nelement vertex {len(vertices)}\n"
     "property float x\nproperty float y\nproperty float z\n"
+    "property float s\nproperty float t\n"
     f"element face {len(faces)}\nproperty list uchar int vertex_indices\nend_header\n"
 )
 triangles = np.empty(len(faces), dtype=[("count", "u1"), ("indices", "<i4", (3,))])
@@ -99,7 +110,7 @@ triangles["count"] = 3
 triangles["indices"] = faces
 with (ASSETS / "lily-bouquet.ply").open("wb") as output:
     output.write(header.encode("ascii"))
-    vertices.astype("<f4").tofile(output)
+    np.column_stack([vertices, uv]).astype("<f4").tofile(output)
     triangles.tofile(output)
 
 print(f"{len(vertices):,} vertices, {len(faces):,} triangles")

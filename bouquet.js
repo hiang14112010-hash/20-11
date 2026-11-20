@@ -6,98 +6,62 @@ const modelWidth = 2.60;
 const modelCenter = .23;
 
 const vertexShader = `
-  varying vec3 surfacePoint;
-  varying vec3 surfaceNormal;
+  uniform vec3 dimensions;
+  varying vec2 surfaceUV;
+  varying vec2 frontUV;
+
   void main() {
-    surfacePoint = position;
-    surfaceNormal = normal;
+    surfaceUV = uv;
+    frontUV = vec2(
+      0.5 + position.x / dimensions.x,
+      0.5 + (position.y - dimensions.z) / dimensions.y
+    );
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `;
 
 const fragmentShader = `
-  uniform sampler2D firstPhoto;
-  uniform sampler2D secondPhoto;
-  uniform vec2 firstProjection;
-  uniform vec2 secondProjection;
-  uniform float photoBlend;
-  uniform float angleBetweenPhotos;
-  uniform vec3 dimensions;
-  varying vec3 surfacePoint;
-  varying vec3 surfaceNormal;
+  uniform sampler2D surfacePhoto;
+  uniform sampler2D frontPhoto;
+  uniform float frontDetail;
+  varying vec2 surfaceUV;
+  varying vec2 frontUV;
 
   void main() {
-    vec3 n = normalize(surfaceNormal);
-    float v = 0.5 + (surfacePoint.y - dimensions.z) / dimensions.y;
-    vec2 axis = surfacePoint.xz / dimensions.x;
-    vec4 a = texture2D(firstPhoto, vec2(0.5 + dot(axis, firstProjection), v));
-    vec4 b = texture2D(secondPhoto, vec2(0.5 + dot(axis, secondProjection), v));
-    vec2 photoNormals = vec2(
-      dot(n.xz, vec2(-firstProjection.y, firstProjection.x)),
-      dot(n.xz, vec2(-secondProjection.y, secondProjection.x))
-    );
-    float facing = clamp((photoNormals.y - photoNormals.x) * 0.08, -0.06, 0.06);
-    float blend = smoothstep(0.46, 0.54, photoBlend + facing);
-    vec2 weights = vec2(1.0 - blend, blend);
-    vec2 alpha = vec2(a.a, b.a);
-    float gap = 1.0 - smoothstep(0.04, 0.30, dot(weights, alpha));
-    weights += vec2(0.28 * sin(3.14159 * angleBetweenPhotos) * gap);
-    vec2 coverage = weights * alpha;
-    float sum = coverage.x + coverage.y;
-    if (sum < 0.055) discard;
-    vec3 color = (a.rgb * coverage.x + b.rgb * coverage.y) / max(sum, 0.001);
-    gl_FragColor = vec4(color, 1.0);
+    vec3 color = texture2D(surfacePhoto, surfaceUV).rgb;
+    vec4 original = texture2D(frontPhoto, frontUV);
+    float detail = frontDetail * smoothstep(0.20, 0.94, original.a);
+    gl_FragColor = vec4(mix(color, original.rgb, detail), 1.0);
     #include <colorspace_fragment>
   }
 `;
 
 async function loadBouquet() {
   const loader = new THREE.TextureLoader();
-  const angles = ["", "-315", "-left", "-225", "-back", "-135", "-right", "-45"];
-  const [geometry, textures] = await Promise.all([
-    new PLYLoader().loadAsync("assets/lily-bouquet.ply?v=1"),
-    Promise.all(angles.map((angle) =>
-      loader.loadAsync("assets/lily-bouquet" + angle + ".webp"))),
+  const [geometry, surfacePhoto, frontPhoto] = await Promise.all([
+    new PLYLoader().loadAsync("assets/lily-bouquet.ply?v=2"),
+    loader.loadAsync("assets/lily-bouquet-texture.webp?v=1"),
+    loader.loadAsync("assets/lily-bouquet.webp"),
   ]);
-  geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
-  for (const texture of textures) {
+  for (const texture of [surfacePhoto, frontPhoto]) {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = 4;
   }
 
-  const firstProjection = new THREE.Vector2(1, 0);
-  const secondProjection = new THREE.Vector2();
-  const uniforms = {
-    firstPhoto: { value: textures[0] },
-    secondPhoto: { value: textures[1] },
-    firstProjection: { value: firstProjection },
-    secondProjection: { value: secondProjection },
-    photoBlend: { value: 0 },
-    angleBetweenPhotos: { value: 0 },
-    dimensions: { value: new THREE.Vector3(modelWidth, modelHeight, modelCenter) },
-  };
+  const frontDetail = { value: 1 };
   const material = new THREE.ShaderMaterial({
     vertexShader,
     fragmentShader,
     toneMapped: false,
-    uniforms,
+    uniforms: {
+      surfacePhoto: { value: surfacePhoto },
+      frontPhoto: { value: frontPhoto },
+      frontDetail,
+      dimensions: { value: new THREE.Vector3(modelWidth, modelHeight, modelCenter) },
+    },
   });
-  const flowers = new THREE.Mesh(geometry, material);
-  function updatePhotos(angle, dragging) {
-    const sector = angle / 45;
-    const index = Math.floor(sector);
-    const a = index * Math.PI / 4;
-    const b = a + Math.PI / 4;
-    uniforms.firstPhoto.value = textures[index];
-    uniforms.secondPhoto.value = textures[(index + 1) % textures.length];
-    firstProjection.set(Math.cos(a), Math.sin(a));
-    secondProjection.set(Math.cos(b), Math.sin(b));
-    const progress = sector - index;
-    uniforms.photoBlend.value = dragging ? progress : Math.round(progress);
-    uniforms.angleBetweenPhotos.value = progress;
-  }
-  return { flowers, updatePhotos };
+  return { flowers: new THREE.Mesh(geometry, material), frontDetail };
 }
 
 function createNote() {
@@ -145,7 +109,7 @@ export async function mountBouquet({ display, rotator, canvas, noteButton, hint 
     renderer.dispose();
     throw error;
   }
-  const { flowers, updatePhotos } = model;
+  const { flowers, frontDetail } = model;
   const note = createNote();
   const bouquet = new THREE.Group();
   bouquet.add(flowers, note);
@@ -189,7 +153,7 @@ export async function mountBouquet({ display, rotator, canvas, noteButton, hint 
 
     const turn = THREE.MathUtils.degToRad(angle);
     bouquet.rotation.y = turn;
-    updatePhotos(angle, drag?.moved);
+    frontDetail.value = THREE.MathUtils.smoothstep(Math.cos(turn), .87, 1);
     renderer.render(scene, camera);
 
     const center = note.localToWorld(new THREE.Vector3(0, .037, .024)).project(camera);
@@ -248,9 +212,7 @@ export async function mountBouquet({ display, rotator, canvas, noteButton, hint 
     noteButton.click();
   });
   rotator.addEventListener("lostpointercapture", (event) => {
-    if (drag?.id !== event.pointerId) return;
-    drag = undefined;
-    queueDraw();
+    if (drag?.id === event.pointerId) drag = undefined;
   });
 
   rotator.addEventListener("keydown", (event) => {
