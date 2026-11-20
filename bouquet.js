@@ -24,14 +24,13 @@ const vertexShader = `
 const fragmentShader = `
   uniform sampler2D surfacePhoto;
   uniform sampler2D referencePhoto;
-  uniform float referenceDetail;
   varying vec2 surfaceUV;
   varying vec2 referenceUV;
 
   void main() {
     vec3 color = texture2D(surfacePhoto, surfaceUV).rgb;
     vec4 original = texture2D(referencePhoto, referenceUV);
-    float detail = referenceDetail * smoothstep(0.20, 0.94, original.a);
+    float detail = smoothstep(0.20, 0.94, original.a);
     gl_FragColor = vec4(mix(color, original.rgb, detail), 1.0);
     #include <colorspace_fragment>
   }
@@ -39,7 +38,7 @@ const fragmentShader = `
 
 async function loadBouquet() {
   const loader = new THREE.TextureLoader();
-  const angles = ["", "-315", "-left", "-225", "-back", "-135", "-right", "-45"];
+  const angles = ["", "-left", "-back", "-right"];
   const [geometry, surfacePhoto, references] = await Promise.all([
     new PLYLoader().loadAsync("assets/lily-bouquet.ply?v=2"),
     loader.loadAsync("assets/lily-bouquet-texture.webp?v=1"),
@@ -51,7 +50,6 @@ async function loadBouquet() {
     texture.anisotropy = 4;
   }
 
-  const referenceDetail = { value: 1 };
   const referencePhoto = { value: references[0] };
   const referenceAxis = new THREE.Vector2(1, 0);
   const material = new THREE.ShaderMaterial({
@@ -62,18 +60,13 @@ async function loadBouquet() {
       surfacePhoto: { value: surfacePhoto },
       referencePhoto,
       referenceAxis: { value: referenceAxis },
-      referenceDetail,
       dimensions: { value: new THREE.Vector3(modelWidth, modelHeight, modelCenter) },
     },
   });
   function updateReference(angle) {
-    const sector = Math.round(angle / 45);
-    const anchor = sector * Math.PI / 4;
-    referencePhoto.value = references[sector % references.length];
-    referenceAxis.set(Math.cos(anchor), Math.sin(anchor));
-    // Fade fully into the fixed texture before switching reference cameras.
-    const offset = Math.abs(angle - sector * 45);
-    referenceDetail.value = 1 - THREE.MathUtils.smoothstep(offset, 4, 22.5);
+    referencePhoto.value = references[angle / 90];
+    const yaw = THREE.MathUtils.degToRad(angle);
+    referenceAxis.set(Math.cos(yaw), Math.sin(yaw));
   }
   return { flowers: new THREE.Mesh(geometry, material), updateReference };
 }
@@ -189,7 +182,8 @@ export async function mountBouquet({ display, rotator, canvas, noteButton, hint 
 
   function turn(next) {
     angle = (next % 360 + 360) % 360;
-    rotator.setAttribute("aria-valuenow", Math.floor(angle));
+    rotator.setAttribute("aria-valuenow", angle);
+    rotator.setAttribute("aria-valuetext", ["Mặt trước", "Mặt bên phải", "Mặt sau", "Mặt bên trái"][angle / 90]);
     queueDraw();
   }
 
@@ -202,7 +196,7 @@ export async function mountBouquet({ display, rotator, canvas, noteButton, hint 
     if (!event.isPrimary || event.button !== 0) return;
     rotator.dataset.pointer = "";
     pendingNoteClick = false;
-    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, angle, moved: false };
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false, turned: false };
     rotator.setPointerCapture(event.pointerId);
   });
   rotator.addEventListener("pointermove", (event) => {
@@ -211,11 +205,13 @@ export async function mountBouquet({ display, rotator, canvas, noteButton, hint 
       return;
     }
     const delta = event.clientX - drag.x;
-    if (!drag.moved && Math.abs(delta) < 5 && Math.abs(event.clientY - drag.y) < 5) return;
-    drag.moved = true;
+    const vertical = Math.abs(event.clientY - drag.y);
+    if (Math.max(Math.abs(delta), vertical) >= 5) drag.moved = true;
+    if (drag.turned || Math.abs(delta) < 22 || Math.abs(delta) <= vertical) return;
+    drag.turned = true;
     dismissed = true;
     rotator.style.cursor = "";
-    turn(drag.angle + delta * 360 / rotator.clientWidth);
+    turn(angle + Math.sign(delta) * 90);
   });
   rotator.addEventListener("pointerup", (event) => {
     if (drag?.id !== event.pointerId) return;
@@ -232,9 +228,9 @@ export async function mountBouquet({ display, rotator, canvas, noteButton, hint 
 
   rotator.addEventListener("keydown", (event) => {
     delete rotator.dataset.pointer;
-    const step = { ArrowLeft: -15, ArrowDown: -15, ArrowRight: 15, ArrowUp: 15 };
+    const step = { ArrowLeft: -90, ArrowDown: -90, ArrowRight: 90, ArrowUp: 90 };
     if (event.key === "Home" || event.key === "End") {
-      turn(event.key === "Home" ? 0 : 359);
+      turn(event.key === "Home" ? 0 : 270);
     } else if (Object.hasOwn(step, event.key)) {
       turn(angle + step[event.key]);
     } else {
