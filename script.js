@@ -11,7 +11,7 @@ const restartButton = document.querySelector("#restart-button");
 const shower = document.querySelector("#flower-shower");
 const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
 
-const bouquetViewer = import("./bouquet.js?v=1").then(({ mountBouquet }) => mountBouquet({
+const bouquetViewer = import("./bouquet.js?v=2").then(({ mountBouquet }) => mountBouquet({
   display: document.querySelector("#bouquet-display"),
   rotator: bouquetRotator,
   canvas: document.querySelector("#bouquet-canvas"),
