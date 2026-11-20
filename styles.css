@@ -272,59 +272,145 @@ body[data-scene="letter"] .garden { opacity: .42; transform: scale(1.05); }
   transform: rotate(45deg);
 }
 
-.scene-card, .scene-envelope { padding-block: 52px; }
-.card-art {
-  display: grid;
-  place-items: center;
-  width: min(450px, 84vw);
-  height: clamp(255px, 38vw, 396px);
+.scene-envelope { padding-block: 52px; }
+.scene-bouquet { padding-block: 28px; }
+.bouquet-display {
   position: relative;
-  margin-bottom: 22px;
+  width: min(100%, 30rem, 67svh);
+  aspect-ratio: 1;
+  margin-inline: auto;
 }
-.card-face, .card-underlay {
-  position: absolute;
-  display: block;
-  width: 77%;
-  aspect-ratio: 1.28;
-  border-radius: 5px;
-  transition: transform .5s cubic-bezier(.2,.7,.25,1);
-}
-.card-underlay {
-  transform: rotate(9deg) translate(9px, 4px);
-  border: 1px solid #a74f6870;
-  background: repeating-linear-gradient(45deg, #e9a6b7, #e9a6b7 6px, #e5a0b0 6px, #e5a0b0 9px);
-  box-shadow: 0 21px 46px #77304b36;
-}
-.card-face {
-  isolation: isolate;
-  background: #fff7f2;
-  transform: rotate(-8deg);
-  box-shadow: 0 11px 25px #612d3c30;
-  border: 1px solid #ae697565;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-}
-.card-face::before {
+.bouquet-display::before {
   content: "";
   position: absolute;
-  inset: 11px;
-  border: 1px solid #c1848d;
-  border-radius: 4px;
+  inset: 5%;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fffaf1cf, #fff0e877 54%, transparent 73%);
+  pointer-events: none;
 }
-.card-copy {
+.bouquet-rotator {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+}
+.bouquet-rotator:active { cursor: grabbing; }
+.bouquet-rotator:focus-visible { outline: 2px solid var(--berry); outline-offset: 3px; }
+.bouquet-rotator img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 71%;
+  height: 94%;
+  object-fit: contain;
+  object-position: center;
+  transform-origin: 50% 43%;
+  transform: translate(-50%, -43%) rotate(var(--bouquet-angle, 0deg));
+  filter: drop-shadow(0 16px 17px #76334741);
+  pointer-events: none;
+}
+.bouquet-note {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  width: clamp(62px, 18vw, 89px);
+  aspect-ratio: 1.45;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+}
+.bouquet-callout {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 9px);
+  transform: translateX(-50%);
   display: grid;
-  gap: 4px;
-  font: italic 400 clamp(1.08rem, 2.6vw, 1.8rem)/1.15 var(--serif);
+  justify-items: center;
+  gap: 8px;
   color: var(--berry);
 }
-.card-star { font: 400 1rem/1 var(--serif); margin-bottom: 8px; }
-.card-copy strong { font: 400 clamp(2.25rem, 5.8vw, 4.35rem)/1 var(--serif); letter-spacing: -.08em; }
-.card-flower { position: absolute; height: auto; filter: drop-shadow(0 4px 4px #7b344c36); }
-.card-ruby { width: 43%; left: -13%; bottom: -5%; transform: rotate(-21deg); }
-.card-pink { width: 38%; right: -7%; top: -12%; transform: rotate(6deg); }
-.card-blue { width: 20%; right: -4%; top: 21%; transform: rotate(20deg); }
-.card-gold { width: 14%; left: 14%; bottom: -6%; transform: rotate(27deg); }
+.bouquet-callout-label {
+  display: block;
+  padding: .46rem .8rem;
+  border: 1px solid #ad527680;
+  border-radius: 999px;
+  background: #fff9f3;
+  box-shadow: 0 3px 12px #80334b29;
+  font-size: .9rem;
+  white-space: nowrap;
+}
+.bouquet-arrow {
+  position: relative;
+  display: block;
+  width: 3px;
+  height: 21px;
+  border-radius: 3px;
+  background: currentColor;
+  filter: drop-shadow(0 0 2px #fff5ed);
+  animation: bouquet-arrow-bounce 1.25s ease-in-out infinite;
+}
+.bouquet-arrow::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border: solid currentColor;
+  border-width: 0 3px 3px 0;
+  transform: translateX(-50%) rotate(45deg);
+}
+@keyframes bouquet-arrow-bounce {
+  0%, 100% { transform: translateY(-3px); }
+  50% { transform: translateY(4px); }
+}
+.bouquet-mini-envelope {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid #b96580;
+  border-radius: 5px;
+  background: linear-gradient(155deg, #fffbf3, #f7d6df);
+  box-shadow: 0 6px 15px #68294365;
+  transform: rotate(-9deg);
+  transition: transform .22s ease;
+}
+.bouquet-mini-envelope::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #facad6, #e9a0b8);
+  clip-path: polygon(0 0, 100% 0, 50% 64%);
+}
+.bouquet-mini-envelope span {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #8e3150;
+  color: #fff9f5;
+  font-size: .9rem;
+  line-height: 1;
+}
+.bouquet-note:is(:hover, :focus-visible) .bouquet-mini-envelope { transform: rotate(-4deg) scale(1.08); }
+.bouquet-hint {
+  margin: .7rem 0 0;
+  color: var(--muted);
+  font-size: .9rem;
+  line-height: 1.5;
+}
 
 .envelope-art {
   display: block;
@@ -539,7 +625,6 @@ body[data-scene="letter"] .garden { opacity: .42; transform: scale(1.05); }
 @media (hover:hover) {
   .scene-action:hover .pill { background: #8b294b; box-shadow: 0 11px 26px #7e22434a, inset 0 1px #ffffff37; }
   .heart-action:hover .heart-frame { transform: translateY(0) rotate(-6deg) scale(calc(var(--heart-scale, 1) * 1.055)); }
-  .card-action:hover .card-face { transform: rotate(-5deg) translateY(-6px); }
   .envelope-action:hover .envelope-art { transform: translateY(-5px); }
   .restart:hover { background: #fff9f5; }
 }
@@ -578,9 +663,9 @@ body[data-scene="letter"] .garden { opacity: .42; transform: scale(1.05); }
   .spark-b { right: 5%; bottom: 18%; }
   .spark-c { left: 24%; bottom: 4%; }
   .pill { min-height: 49px; padding-inline: 18px; }
-  .scene-card, .scene-envelope { padding-block: 38px; }
+  .scene-envelope { padding-block: 38px; }
+  .scene-bouquet { padding-block: 22px; }
   .scene-heading { margin-bottom: 15px; }
-  .card-art { margin-bottom: 6px; }
   .scene-letter { padding-inline: 2px; padding-block: 26px; }
   .letter-layout {
     display: grid;
@@ -608,6 +693,7 @@ body[data-scene="letter"] .garden { opacity: .42; transform: scale(1.05); }
   .letter-sheet { padding-inline: 19px; }
 }
 @media (prefers-reduced-motion: reduce) {
+  .bouquet-arrow { animation: none; }
   *, *::before, *::after {
     animation-duration: 1ms !important;
     transition-duration: 1ms !important;

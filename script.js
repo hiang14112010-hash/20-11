@@ -3,7 +3,8 @@ const scenes = Object.fromEntries(
 );
 const heartButton = document.querySelector("#heart-button");
 const heartOrigin = document.querySelector("#heart-origin");
-const cardButton = document.querySelector("#card-button");
+const bouquetRotator = document.querySelector("#bouquet-rotator");
+const bouquetNote = document.querySelector("#bouquet-note");
 const envelopeButton = document.querySelector("#envelope-button");
 const letterHeading = document.querySelector("#letter-heading");
 const restartButton = document.querySelector("#restart-button");
@@ -20,7 +21,8 @@ const flowerImages = flowerNames.map((name) => {
 
 let currentScene = "heart";
 let transitioning = false;
-let flowerCleanup;
+let bouquetAngle = 0;
+let bouquetDrag;
 
 function wait(milliseconds) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -43,20 +45,15 @@ function randomBetween(min, max) {
   return min + Math.random() * (max - min);
 }
 
-function clearFlowers() {
-  clearTimeout(flowerCleanup);
-  shower.replaceChildren();
-}
-
-function scatterFlowers(origin) {
+function scatterFlowers(origin, reduced) {
   const { width, height } = shower.getBoundingClientRect();
   const x = origin.left + origin.width / 2;
   const y = origin.top + origin.height / 2;
   const mobile = width < 650;
-  const reduced = motionPreference.matches;
   const columns = reduced ? 5 : mobile ? 8 : 15;
   const rows = reduced ? 4 : mobile ? 13 : 10;
   const fragment = document.createDocumentFragment();
+  const flights = [];
 
   // Give each flower its own destination and curve through the burst.
   for (let index = 0; index < columns * rows; index += 1) {
@@ -92,16 +89,17 @@ function scatterFlowers(origin) {
     const zoom = randomBetween(1.75, 2.45);
     flower.style.left = `${x - size / 2}px`;
     flower.style.top = `${y - size / 2}px`;
-    flower.animate([
+    const flight = flower.animate([
       { transform: "translate(0, 0) rotate(0deg) scale(.05)", opacity: 0, offset: 0 },
       { transform: `translate(${across * .34 - dy * curve}px, ${down * .34 + dx * curve}px) rotate(${spin * .26}deg) scale(.55)`, opacity: .88, offset: .23, easing: "ease-out" },
       { transform: `translate(${across}px, ${down}px) rotate(${spin * .62}deg) scale(${zoom})`, opacity: 1, offset: .56, easing: "ease-in" },
       { transform: `translate(${dx * exitDistance}px, ${dy * exitDistance}px) rotate(${spin}deg) scale(${zoom * 1.32})`, opacity: 0, offset: 1 },
     ], { duration: randomBetween(2000, 2490), delay: randomBetween(0, 240), fill: "both" });
+    flights.push(flight.finished);
   }
 
   shower.append(fragment);
-  flowerCleanup = window.setTimeout(clearFlowers, reduced ? 750 : 2750);
+  return reduced ? wait(420) : Promise.all(flights);
 }
 
 heartButton.addEventListener("click", async () => {
@@ -109,20 +107,54 @@ heartButton.addEventListener("click", async () => {
   transitioning = true;
   heartButton.setAttribute("aria-disabled", "true");
   const origin = heartOrigin.getBoundingClientRect();
+  const reduced = motionPreference.matches;
   heartButton.classList.add("is-bursting");
-  scatterFlowers(origin);
-  if (!motionPreference.matches) {
+  const flowersFinished = scatterFlowers(origin, reduced);
+  if (!reduced) {
     await wait(1150);
     scenes.heart.classList.add("is-leaving");
-    await wait(410);
   }
-  showScene("card", cardButton);
+  await flowersFinished;
+  shower.replaceChildren();
+  showScene("bouquet", bouquetNote);
   transitioning = false;
 });
 
-cardButton.addEventListener("click", () => {
+function rotateBouquet(angle) {
+  bouquetAngle = Math.round(Math.max(-180, Math.min(180, angle)));
+  bouquetRotator.style.setProperty("--bouquet-angle", `${bouquetAngle}deg`);
+  bouquetRotator.setAttribute("aria-valuenow", bouquetAngle);
+}
+
+bouquetRotator.addEventListener("pointerdown", (event) => {
+  if (!event.isPrimary || event.button !== 0) return;
+  bouquetDrag = { id: event.pointerId, x: event.clientX, angle: bouquetAngle };
+  bouquetRotator.setPointerCapture(event.pointerId);
+});
+
+bouquetRotator.addEventListener("pointermove", (event) => {
+  if (bouquetDrag?.id !== event.pointerId) return;
+  rotateBouquet(bouquetDrag.angle + (event.clientX - bouquetDrag.x) * 1.1);
+});
+
+bouquetRotator.addEventListener("lostpointercapture", (event) => {
+  if (bouquetDrag?.id === event.pointerId) bouquetDrag = undefined;
+});
+
+bouquetRotator.addEventListener("keydown", (event) => {
+  const step = { ArrowLeft: -12, ArrowDown: -12, ArrowRight: 12, ArrowUp: 12 };
+  if (event.key === "Home" || event.key === "End") {
+    rotateBouquet(event.key === "Home" ? -180 : 180);
+  } else if (Object.hasOwn(step, event.key)) {
+    rotateBouquet(bouquetAngle + step[event.key]);
+  } else {
+    return;
+  }
+  event.preventDefault();
+});
+
+bouquetNote.addEventListener("click", () => {
   if (transitioning) return;
-  clearFlowers();
   showScene("envelope", envelopeButton);
 });
 
@@ -142,7 +174,7 @@ envelopeButton.addEventListener("click", async () => {
 
 restartButton.addEventListener("click", () => {
   if (transitioning) return;
-  clearFlowers();
+  rotateBouquet(0);
   heartButton.classList.remove("is-bursting");
   heartButton.removeAttribute("aria-disabled");
   envelopeButton.classList.remove("is-open");
