@@ -514,27 +514,11 @@ body[data-scene="letter"] .garden { opacity: .42; transform: scale(1.05); }
   overflow: hidden;
   pointer-events: none;
 }
-.flower-bloom,
-.bloom-bouquet {
-  position: absolute;
-  inset: 0;
-}
-.bloom-bouquet img {
-  position: absolute;
-  display: block;
-  height: auto;
-}
 .shower-flower {
   position: absolute;
   display: block;
   object-fit: contain;
-  filter: drop-shadow(0 4px 6px #7e304047);
-  opacity: 0;
-}
-.shower-petal {
-  position: absolute;
-  border-radius: 76% 20% 70% 34%;
-  box-shadow: inset 0 -1px 1px #9b4c5a56;
+  filter: drop-shadow(0 2px 4px #7e304036);
   opacity: 0;
 }
 
