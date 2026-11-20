@@ -4,12 +4,14 @@ const scenes = Object.fromEntries(
 const heartButton = document.querySelector("#heart-button");
 const heartOrigin = document.querySelector("#heart-origin");
 const bouquetRotator = document.querySelector("#bouquet-rotator");
+const bouquetViews = [...bouquetRotator.querySelectorAll("img")];
 const bouquetNote = document.querySelector("#bouquet-note");
 const envelopeButton = document.querySelector("#envelope-button");
 const letterHeading = document.querySelector("#letter-heading");
 const restartButton = document.querySelector("#restart-button");
 const shower = document.querySelector("#flower-shower");
 const motionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+const bouquetViewNames = ["Mặt trước", "Mặt phải", "Mặt sau", "Mặt trái"];
 
 const flowerNames = ["pink", "blue", "gold", "ruby", "blossoms", "white"];
 const flowerImages = flowerNames.map((name) => {
@@ -23,6 +25,7 @@ let currentScene = "heart";
 let transitioning = false;
 let bouquetAngle = 0;
 let bouquetDrag;
+let bouquetFrame;
 
 function wait(milliseconds) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -121,32 +124,74 @@ heartButton.addEventListener("click", async () => {
 });
 
 function rotateBouquet(angle) {
-  bouquetAngle = Math.round(Math.max(-180, Math.min(180, angle)));
-  bouquetRotator.style.setProperty("--bouquet-angle", `${bouquetAngle}deg`);
-  bouquetRotator.setAttribute("aria-valuenow", bouquetAngle);
+  bouquetAngle = (angle % 360 + 360) % 360;
+  const position = bouquetAngle / 90;
+  const currentView = Math.floor(position);
+  const nextView = (currentView + 1) % bouquetViews.length;
+  const nearestView = Math.round(position) % bouquetViews.length;
+  const blend = Math.max(0, Math.min(1, (position - currentView - .36) / .28));
+
+  for (const [index, view] of bouquetViews.entries()) {
+    const offset = (bouquetAngle - index * 90 + 540) % 360 - 180;
+    view.style.setProperty("--view-turn", `${offset * .76}deg`);
+    view.style.opacity = index === currentView ? 1 - blend : index === nextView ? blend : 0;
+  }
+
+  if (bouquetRotator.getAttribute("aria-valuenow") !== String(nearestView)) {
+    bouquetRotator.setAttribute("aria-valuenow", nearestView);
+    bouquetRotator.setAttribute("aria-valuetext", bouquetViewNames[nearestView]);
+  }
+}
+
+function settleBouquet(target) {
+  cancelAnimationFrame(bouquetFrame);
+  const start = bouquetAngle;
+  const turn = (target - start + 540) % 360 - 180;
+  if (motionPreference.matches || Math.abs(turn) < .5) {
+    rotateBouquet(target);
+    return;
+  }
+
+  const startTime = performance.now();
+  function animateTurn(now) {
+    const progress = Math.min(1, (now - startTime) / 230);
+    rotateBouquet(start + turn * (1 - (1 - progress) ** 3));
+    if (progress < 1) bouquetFrame = requestAnimationFrame(animateTurn);
+  }
+  bouquetFrame = requestAnimationFrame(animateTurn);
 }
 
 bouquetRotator.addEventListener("pointerdown", (event) => {
   if (!event.isPrimary || event.button !== 0) return;
-  bouquetDrag = { id: event.pointerId, x: event.clientX, angle: bouquetAngle };
+  cancelAnimationFrame(bouquetFrame);
+  bouquetDrag = {
+    id: event.pointerId,
+    x: event.clientX,
+    angle: bouquetAngle,
+    sensitivity: 360 / bouquetRotator.clientWidth,
+  };
   bouquetRotator.setPointerCapture(event.pointerId);
 });
 
 bouquetRotator.addEventListener("pointermove", (event) => {
   if (bouquetDrag?.id !== event.pointerId) return;
-  rotateBouquet(bouquetDrag.angle + (event.clientX - bouquetDrag.x) * 1.1);
+  rotateBouquet(bouquetDrag.angle + (event.clientX - bouquetDrag.x) * bouquetDrag.sensitivity);
 });
 
 bouquetRotator.addEventListener("lostpointercapture", (event) => {
-  if (bouquetDrag?.id === event.pointerId) bouquetDrag = undefined;
+  if (bouquetDrag?.id !== event.pointerId) return;
+  bouquetDrag = undefined;
+  settleBouquet(Math.round(bouquetAngle / 90) * 90);
 });
 
 bouquetRotator.addEventListener("keydown", (event) => {
-  const step = { ArrowLeft: -12, ArrowDown: -12, ArrowRight: 12, ArrowUp: 12 };
+  const step = { ArrowLeft: -1, ArrowDown: -1, ArrowRight: 1, ArrowUp: 1 };
   if (event.key === "Home" || event.key === "End") {
-    rotateBouquet(event.key === "Home" ? -180 : 180);
+    settleBouquet(event.key === "Home" ? 0 : 270);
   } else if (Object.hasOwn(step, event.key)) {
-    rotateBouquet(bouquetAngle + step[event.key]);
+    const view = Number(bouquetRotator.getAttribute("aria-valuenow"));
+    const next = Math.max(0, Math.min(bouquetViews.length - 1, view + step[event.key]));
+    settleBouquet(next * 90);
   } else {
     return;
   }
@@ -174,6 +219,7 @@ envelopeButton.addEventListener("click", async () => {
 
 restartButton.addEventListener("click", () => {
   if (transitioning) return;
+  cancelAnimationFrame(bouquetFrame);
   rotateBouquet(0);
   heartButton.classList.remove("is-bursting");
   heartButton.removeAttribute("aria-disabled");
