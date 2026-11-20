@@ -7,13 +7,14 @@ const modelCenter = .23;
 
 const vertexShader = `
   uniform vec3 dimensions;
+  uniform vec2 referenceAxis;
   varying vec2 surfaceUV;
-  varying vec2 frontUV;
+  varying vec2 referenceUV;
 
   void main() {
     surfaceUV = uv;
-    frontUV = vec2(
-      0.5 + position.x / dimensions.x,
+    referenceUV = vec2(
+      0.5 + dot(position.xz, referenceAxis) / dimensions.x,
       0.5 + (position.y - dimensions.z) / dimensions.y
     );
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
@@ -22,15 +23,15 @@ const vertexShader = `
 
 const fragmentShader = `
   uniform sampler2D surfacePhoto;
-  uniform sampler2D frontPhoto;
-  uniform float frontDetail;
+  uniform sampler2D referencePhoto;
+  uniform float referenceDetail;
   varying vec2 surfaceUV;
-  varying vec2 frontUV;
+  varying vec2 referenceUV;
 
   void main() {
     vec3 color = texture2D(surfacePhoto, surfaceUV).rgb;
-    vec4 original = texture2D(frontPhoto, frontUV);
-    float detail = frontDetail * smoothstep(0.20, 0.94, original.a);
+    vec4 original = texture2D(referencePhoto, referenceUV);
+    float detail = referenceDetail * smoothstep(0.20, 0.94, original.a);
     gl_FragColor = vec4(mix(color, original.rgb, detail), 1.0);
     #include <colorspace_fragment>
   }
@@ -38,30 +39,43 @@ const fragmentShader = `
 
 async function loadBouquet() {
   const loader = new THREE.TextureLoader();
-  const [geometry, surfacePhoto, frontPhoto] = await Promise.all([
+  const angles = ["", "-315", "-left", "-225", "-back", "-135", "-right", "-45"];
+  const [geometry, surfacePhoto, references] = await Promise.all([
     new PLYLoader().loadAsync("assets/lily-bouquet.ply?v=2"),
     loader.loadAsync("assets/lily-bouquet-texture.webp?v=1"),
-    loader.loadAsync("assets/lily-bouquet.webp"),
+    Promise.all(angles.map((suffix) => loader.loadAsync("assets/lily-bouquet" + suffix + ".webp"))),
   ]);
   geometry.computeBoundingSphere();
-  for (const texture of [surfacePhoto, frontPhoto]) {
+  for (const texture of [surfacePhoto, ...references]) {
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = 4;
   }
 
-  const frontDetail = { value: 1 };
+  const referenceDetail = { value: 1 };
+  const referencePhoto = { value: references[0] };
+  const referenceAxis = new THREE.Vector2(1, 0);
   const material = new THREE.ShaderMaterial({
     vertexShader,
     fragmentShader,
     toneMapped: false,
     uniforms: {
       surfacePhoto: { value: surfacePhoto },
-      frontPhoto: { value: frontPhoto },
-      frontDetail,
+      referencePhoto,
+      referenceAxis: { value: referenceAxis },
+      referenceDetail,
       dimensions: { value: new THREE.Vector3(modelWidth, modelHeight, modelCenter) },
     },
   });
-  return { flowers: new THREE.Mesh(geometry, material), frontDetail };
+  function updateReference(angle) {
+    const sector = Math.round(angle / 45);
+    const anchor = sector * Math.PI / 4;
+    referencePhoto.value = references[sector % references.length];
+    referenceAxis.set(Math.cos(anchor), Math.sin(anchor));
+    // Fade fully into the fixed texture before switching reference cameras.
+    const offset = Math.abs(angle - sector * 45);
+    referenceDetail.value = 1 - THREE.MathUtils.smoothstep(offset, 4, 22.5);
+  }
+  return { flowers: new THREE.Mesh(geometry, material), updateReference };
 }
 
 function createNote() {
@@ -109,7 +123,7 @@ export async function mountBouquet({ display, rotator, canvas, noteButton, hint 
     renderer.dispose();
     throw error;
   }
-  const { flowers, frontDetail } = model;
+  const { flowers, updateReference } = model;
   const note = createNote();
   const bouquet = new THREE.Group();
   bouquet.add(flowers, note);
@@ -153,7 +167,7 @@ export async function mountBouquet({ display, rotator, canvas, noteButton, hint 
 
     const turn = THREE.MathUtils.degToRad(angle);
     bouquet.rotation.y = turn;
-    frontDetail.value = THREE.MathUtils.smoothstep(Math.cos(turn), .87, 1);
+    updateReference(angle);
     renderer.render(scene, camera);
 
     const center = note.localToWorld(new THREE.Vector3(0, .037, .024)).project(camera);
@@ -186,6 +200,7 @@ export async function mountBouquet({ display, rotator, canvas, noteButton, hint 
 
   rotator.addEventListener("pointerdown", (event) => {
     if (!event.isPrimary || event.button !== 0) return;
+    rotator.dataset.pointer = "";
     pendingNoteClick = false;
     drag = { id: event.pointerId, x: event.clientX, y: event.clientY, angle, moved: false };
     rotator.setPointerCapture(event.pointerId);
@@ -216,6 +231,7 @@ export async function mountBouquet({ display, rotator, canvas, noteButton, hint 
   });
 
   rotator.addEventListener("keydown", (event) => {
+    delete rotator.dataset.pointer;
     const step = { ArrowLeft: -15, ArrowDown: -15, ArrowRight: 15, ArrowUp: 15 };
     if (event.key === "Home" || event.key === "End") {
       turn(event.key === "Home" ? 0 : 359);
@@ -227,6 +243,8 @@ export async function mountBouquet({ display, rotator, canvas, noteButton, hint 
     dismissed = true;
     event.preventDefault();
   });
+
+  rotator.addEventListener("blur", () => { delete rotator.dataset.pointer; });
 
   const observer = new ResizeObserver(queueDraw);
   observer.observe(rotator);

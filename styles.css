@@ -297,7 +297,8 @@ body[data-scene="letter"] .garden { opacity: .42; transform: scale(1.05); }
   user-select: none;
 }
 .bouquet-rotator:active { cursor: grabbing; }
-.bouquet-rotator:focus-visible { outline: 2px solid var(--berry); outline-offset: 3px; }
+.bouquet-rotator:focus { outline: none; }
+.bouquet-rotator:focus-visible:not([data-pointer]) { outline: 2px solid var(--berry); outline-offset: 3px; }
 .bouquet-fallback {
   position: absolute;
   top: 7%;
