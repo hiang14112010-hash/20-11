@@ -298,26 +298,24 @@ body[data-scene="letter"] .garden { opacity: .42; transform: scale(1.05); }
 }
 .bouquet-rotator:active { cursor: grabbing; }
 .bouquet-rotator:focus-visible { outline: 2px solid var(--berry); outline-offset: 3px; }
-.bouquet-views {
+.bouquet-fallback {
   position: absolute;
-  inset: 0;
-  isolation: isolate;
+  top: 7%;
+  left: 15%;
+  width: 70%;
+  height: 93%;
+  object-fit: contain;
   filter: drop-shadow(0 16px 17px #76334741);
   pointer-events: none;
 }
-.bouquet-views img {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 71%;
-  height: 94%;
-  object-fit: contain;
-  object-position: center;
-  transform-origin: 50% 43%;
-  transform: translate(-50%, -43%) perspective(850px) rotateY(var(--view-turn, 0deg));
-  mix-blend-mode: plus-lighter;
+.bouquet-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
-.bouquet-views img:not(:first-child) { opacity: 0; }
+.bouquet-display.is-3d .bouquet-fallback,
+.bouquet-display.is-3d .bouquet-mini-envelope { display: none; }
+.bouquet-display.is-3d .bouquet-note { pointer-events: none; }
 .bouquet-note {
   position: absolute;
   z-index: 1;
@@ -335,23 +333,12 @@ body[data-scene="letter"] .garden { opacity: .42; transform: scale(1.05); }
 }
 .bouquet-callout {
   position: absolute;
+  z-index: 1;
+  top: 50%;
   left: 50%;
-  bottom: calc(100% + 9px);
-  transform: translateX(-50%);
-  display: grid;
-  justify-items: center;
-  gap: 8px;
+  transform: translate(-50%, calc(-100% - 32px));
   color: var(--berry);
-}
-.bouquet-callout-label {
-  display: block;
-  padding: .46rem .8rem;
-  border: 1px solid #ad527680;
-  border-radius: 999px;
-  background: #fff9f3;
-  box-shadow: 0 3px 12px #80334b29;
-  font-size: .9rem;
-  white-space: nowrap;
+  pointer-events: none;
 }
 .bouquet-arrow {
   position: relative;

@@ -10,8 +10,8 @@
   <title>Gửi cô Nguyễn Quỳnh Hoa</title>
   <link rel="icon" href="assets/blossoms-petal.webp" type="image/webp">
   <link rel="preload" href="assets/serif.woff" as="font" type="font/woff" crossorigin>
-  <link rel="stylesheet" href="styles.css?v=6">
-  <script src="script.js?v=6" defer></script>
+  <link rel="stylesheet" href="styles.css?v=7">
+  <script src="script.js?v=7" defer></script>
 </head>
 <body data-scene="heart">
   <div class="page">
@@ -59,26 +59,21 @@
       </section>
 
       <section class="scene scene-bouquet" id="bouquet-scene" aria-label="Bó hoa gửi cô" hidden>
-        <div class="bouquet-display">
+        <div class="bouquet-display" id="bouquet-display">
           <div class="bouquet-rotator" id="bouquet-rotator" tabindex="0" role="slider"
-            aria-label="Xoay bó hoa" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0"
-            aria-valuetext="Mặt trước" aria-describedby="bouquet-hint">
-            <div class="bouquet-views" aria-hidden="true">
-              <img src="assets/lily-bouquet.webp" alt="" width="800" height="1200" draggable="false">
-              <img src="assets/lily-bouquet-right.webp" alt="" width="800" height="1200" draggable="false">
-              <img src="assets/lily-bouquet-back.webp" alt="" width="800" height="1200" draggable="false">
-              <img src="assets/lily-bouquet-left.webp" alt="" width="800" height="1200" draggable="false">
-            </div>
+            aria-label="Xoay bó hoa" aria-valuemin="0" aria-valuemax="359" aria-valuenow="0"
+            aria-describedby="bouquet-hint">
+            <img class="bouquet-fallback" src="assets/lily-bouquet.webp" alt="" width="800" height="1200" draggable="false">
+            <canvas class="bouquet-canvas" id="bouquet-canvas" aria-hidden="true" hidden></canvas>
           </div>
-          <button class="bouquet-note" id="bouquet-note" type="button">
-            <span class="bouquet-callout">
-              <span class="bouquet-callout-label">Có thư gửi cô</span>
-              <span class="bouquet-arrow" aria-hidden="true"></span>
-            </span>
+          <span class="bouquet-callout" id="bouquet-callout" aria-hidden="true">
+            <span class="bouquet-arrow"></span>
+          </span>
+          <button class="bouquet-note" id="bouquet-note" type="button" aria-label="Mở thư trong bó hoa">
             <span class="bouquet-mini-envelope" aria-hidden="true"><span>♡</span></span>
           </button>
         </div>
-        <p class="bouquet-hint" id="bouquet-hint">Kéo ngang để xoay bó hoa 360°</p>
+        <p class="bouquet-hint" id="bouquet-hint">Kéo ngang để xoay · Chạm phong bì để mở thư</p>
       </section>
 
       <section class="scene scene-envelope" id="envelope-scene" aria-labelledby="envelope-heading" hidden>
